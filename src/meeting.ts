@@ -136,6 +136,11 @@ export const createMeeting = async (
       };
     },
     start: () => options.source.start(),
-    stop: (reason) => finalize(reason),
+    stop: async (reason) => {
+      // Leave the call first (source emits "end" → finalize), then ensure
+      // finalize ran even if the source didn't emit (finalize is idempotent).
+      await options.source.stop(reason);
+      await finalize(reason);
+    },
   };
 };
