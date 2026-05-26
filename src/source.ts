@@ -9,6 +9,20 @@ export type MeetingParticipant = {
   metadata?: Record<string, unknown>;
 };
 
+/**
+ * Audio the bot wants to play INTO the call. Adapters declare which formats
+ * they accept (Recall: mp3; Discord: pcm); a TypeError is the right signal
+ * when an adapter is handed a format it cannot play.
+ */
+export type SpeakAudio =
+  | { format: "mp3"; data: ArrayBuffer | Uint8Array }
+  | {
+      format: "pcm";
+      data: ArrayBuffer | Uint8Array;
+      sampleRateHz: number;
+      channels: number;
+    };
+
 export type MeetingSourceEventMap = {
   /** A chunk of call audio (in `format`). `participant` is set when the source
    *  knows who is speaking for this chunk (per-user streams); otherwise omit it
@@ -38,4 +52,11 @@ export type MeetingSource = {
   start: () => Promise<void>;
   /** Leave the call / stop streaming. */
   stop: (reason?: string) => Promise<void>;
+  /**
+   * Play audio INTO the call (the bot speaks). Optional — adapters that can't
+   * inject audio simply don't implement it; `meeting.speak()` will throw a
+   * clear error in that case. Resolves when playback finishes (or as soon as
+   * the platform has accepted it, for fire-and-forget transports).
+   */
+  speak?: (audio: SpeakAudio) => Promise<void>;
 };

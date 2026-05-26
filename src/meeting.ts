@@ -6,7 +6,7 @@ import {
   type VoicePhraseHint,
   type VoiceScribeTurn,
 } from "@absolutejs/voice";
-import type { MeetingParticipant, MeetingSource } from "./source";
+import type { MeetingParticipant, MeetingSource, SpeakAudio } from "./source";
 
 export type MeetingTurn = VoiceScribeTurn & {
   /** Resolved participant for this turn, when the source identified speakers. */
@@ -29,6 +29,12 @@ export type MeetingSession = {
   start: () => Promise<void>;
   /** Leave the call, finalize, and emit `end` with the full transcript. */
   stop: (reason?: string) => Promise<void>;
+  /**
+   * Play audio INTO the call (the bot speaks). Delegates to the source; throws
+   * if the underlying adapter doesn't implement `speak`. See `SpeakAudio` for
+   * the formats each adapter accepts (Recall: mp3; Discord: pcm).
+   */
+  speak: (audio: SpeakAudio) => Promise<void>;
   getTranscript: () => MeetingTurn[];
   getParticipants: () => MeetingParticipant[];
 };
@@ -134,6 +140,14 @@ export const createMeeting = async (
       return () => {
         listeners[event].delete(handler as never);
       };
+    },
+    speak: async (audio) => {
+      if (!options.source.speak) {
+        throw new Error(
+          "meeting.speak: this source does not implement speak() — the bot can't play audio into the call",
+        );
+      }
+      await options.source.speak(audio);
     },
     start: () => options.source.start(),
     stop: async (reason) => {

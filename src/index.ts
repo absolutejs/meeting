@@ -11,4 +11,5 @@ export type {
   MeetingSource,
   MeetingSourceEventMap,
   MeetingParticipant,
+  SpeakAudio,
 } from "./source";
