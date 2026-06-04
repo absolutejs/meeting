@@ -59,4 +59,10 @@ export type MeetingSource = {
    * the platform has accepted it, for fire-and-forget transports).
    */
   speak?: (audio: SpeakAudio) => Promise<void>;
+  /**
+   * Stop any in-progress `speak()` output immediately (barge-in / ducking).
+   * Optional — sources that can't inject audio (or can't stop it) omit it;
+   * `meeting.stopSpeaking()` then no-ops.
+   */
+  stopSpeaking?: () => Promise<void>;
 };

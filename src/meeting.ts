@@ -35,6 +35,9 @@ export type MeetingSession = {
    * the formats each adapter accepts (Recall: mp3; Discord: pcm).
    */
   speak: (audio: SpeakAudio) => Promise<void>;
+  /** Cut the bot's in-progress speech (barge-in). No-op when the source can't
+   *  inject/stop audio or nothing is playing. */
+  stopSpeaking: () => Promise<void>;
   getTranscript: () => MeetingTurn[];
   getParticipants: () => MeetingParticipant[];
 };
@@ -148,6 +151,11 @@ export const createMeeting = async (
         );
       }
       await options.source.speak(audio);
+    },
+    stopSpeaking: async () => {
+      // Barge-in: cut the bot's in-progress speech. No-op for sources that
+      // can't inject (or stop) audio.
+      await options.source.stopSpeaking?.();
     },
     start: () => options.source.start(),
     stop: async (reason) => {

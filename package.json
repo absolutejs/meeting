@@ -1,6 +1,6 @@
 {
 	"name": "@absolutejs/meeting",
-	"version": "0.0.1-beta.1",
+	"version": "0.0.1-beta.4",
 	"description": "Meeting-bot core for AbsoluteJS — join a call (via a source adapter), transcribe it live with the voice scribe, and surface diarized turns + participants for analysis",
 	"repository": {
 		"type": "git",
