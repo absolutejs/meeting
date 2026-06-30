@@ -8,6 +8,8 @@ export type {
 export { createBufferMeetingSource } from "./bufferSource";
 export type { BufferMeetingSourceOptions } from "./bufferSource";
 export type {
+  ChatMessage,
+  MeetingCapabilities,
   MeetingSource,
   MeetingSourceEventMap,
   MeetingParticipant,

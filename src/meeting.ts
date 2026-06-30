@@ -6,7 +6,14 @@ import {
   type VoicePhraseHint,
   type VoiceScribeTurn,
 } from "@absolutejs/voice";
-import type { MeetingParticipant, MeetingSource, SpeakAudio } from "./source";
+import { createEmitter } from "./emitter";
+import type {
+  ChatMessage,
+  MeetingCapabilities,
+  MeetingParticipant,
+  MeetingSource,
+  SpeakAudio,
+} from "./source";
 
 export type MeetingTurn = VoiceScribeTurn & {
   /** Resolved participant for this turn, when the source identified speakers. */
@@ -15,7 +22,14 @@ export type MeetingTurn = VoiceScribeTurn & {
 
 export type MeetingEventMap = {
   turn: { turn: MeetingTurn };
-  participant: { participant: MeetingParticipant };
+  /** Roster update. `status` mirrors the source: "joined"/absent on appear,
+   *  "left" when a participant leaves the call. */
+  participant: {
+    participant: MeetingParticipant;
+    status?: "joined" | "left";
+  };
+  /** A text message arrived in the call chat. */
+  chat: { message: ChatMessage };
   end: { reason?: string; transcript: MeetingTurn[] };
   error: { error: Error };
 };
@@ -38,6 +52,14 @@ export type MeetingSession = {
   /** Cut the bot's in-progress speech (barge-in). No-op when the source can't
    *  inject/stop audio or nothing is playing. */
   stopSpeaking: () => Promise<void>;
+  /**
+   * Post a text message INTO the call chat. Delegates to the source; throws if
+   * the underlying adapter doesn't implement `sendChat`. `opts.system` is a hint
+   * for platforms that distinguish system messages (ignored elsewhere).
+   */
+  sendChat: (text: string, opts?: { system?: boolean }) => Promise<void>;
+  /** What the underlying source can do (speak / chat). */
+  readonly capabilities: MeetingCapabilities;
   getTranscript: () => MeetingTurn[];
   getParticipants: () => MeetingParticipant[];
 };
@@ -74,22 +96,13 @@ export const createMeeting = async (
   // sources); lets us label turns even when STT diarization can't.
   let lastSpeaker: string | undefined;
 
-  const listeners: {
-    [K in keyof MeetingEventMap]: Set<
-      (payload: MeetingEventMap[K]) => void | Promise<void>
-    >;
-  } = {
-    end: new Set(),
-    error: new Set(),
-    participant: new Set(),
-    turn: new Set(),
-  };
-  const emit = <K extends keyof MeetingEventMap>(
-    event: K,
-    payload: MeetingEventMap[K],
-  ) => {
-    for (const handler of listeners[event]) void handler(payload);
-  };
+  const { emit, on } = createEmitter<MeetingEventMap>([
+    "chat",
+    "end",
+    "error",
+    "participant",
+    "turn",
+  ]);
 
   const resolveParticipant = (
     turn: VoiceScribeTurn,
@@ -122,27 +135,38 @@ export const createMeeting = async (
       if (participant) lastSpeaker = participant;
       void scribe.send(chunk);
     }),
-    options.source.on("participant", ({ participant }) => {
-      participants.set(participant.id, participant);
-      emit("participant", { participant });
+    options.source.on("participant", ({ participant, status }) => {
+      // Keep the roster on join/identify; on "left" forward the event but leave
+      // the participant in the map so past turns keep their resolved speaker.
+      if (status !== "left") participants.set(participant.id, participant);
+      emit("participant", { participant, ...(status ? { status } : {}) });
     }),
+    options.source.on("chat", (payload) => emit("chat", payload)),
     options.source.on("end", ({ reason }) => void finalize(reason)),
     options.source.on("error", ({ error }) => emit("error", { error })),
   );
 
+  const capabilities: MeetingCapabilities = options.source.capabilities ?? {
+    canChat: Boolean(options.source.sendChat),
+    canSpeak: Boolean(options.source.speak),
+  };
+
   return {
+    capabilities,
     getParticipants: () => [...participants.values()],
     getTranscript: () =>
       scribe.getTranscript().map((turn) => ({
         ...turn,
         participant: resolveParticipant(turn),
       })),
-    on: (event, handler) => {
-      listeners[event].add(handler as never);
-
-      return () => {
-        listeners[event].delete(handler as never);
-      };
+    on,
+    sendChat: async (text, opts) => {
+      if (!options.source.sendChat) {
+        throw new Error(
+          "meeting.sendChat: this source does not implement sendChat() — the bot can't post to the call chat",
+        );
+      }
+      await options.source.sendChat(text, opts);
     },
     speak: async (audio) => {
       if (!options.source.speak) {

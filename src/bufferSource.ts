@@ -1,4 +1,5 @@
 import type { AudioFormat } from "@absolutejs/voice";
+import { createEmitter } from "./emitter";
 import type {
   MeetingParticipant,
   MeetingSource,
@@ -27,40 +28,30 @@ export const createBufferMeetingSource = (
   options: BufferMeetingSourceOptions,
 ): MeetingSource => {
   const chunkMs = options.chunkMs ?? 40;
-  const listeners: {
-    [K in keyof MeetingSourceEventMap]: Set<
-      (payload: MeetingSourceEventMap[K]) => void | Promise<void>
-    >;
-  } = {
-    audio: new Set(),
-    end: new Set(),
-    error: new Set(),
-    participant: new Set(),
-  };
-  const emit = <K extends keyof MeetingSourceEventMap>(
-    event: K,
-    payload: MeetingSourceEventMap[K],
-  ) => {
-    for (const handler of listeners[event]) void handler(payload);
-  };
+  const { emit, on } = createEmitter<MeetingSourceEventMap>([
+    "audio",
+    "chat",
+    "end",
+    "error",
+    "participant",
+  ]);
   let stopped = false;
 
   return {
     format: options.format,
-    on: (event, handler) => {
-      listeners[event].add(handler as never);
-
-      return () => {
-        listeners[event].delete(handler as never);
-      };
-    },
+    on,
     start: async () => {
       for (const participant of options.participants ?? []) {
         emit("participant", { participant });
       }
       const chunkBytes = Math.max(
         2,
-        Math.round((bytesPerSample(options.format) * options.format.sampleRateHz * chunkMs) / 1000),
+        Math.round(
+          (bytesPerSample(options.format) *
+            options.format.sampleRateHz *
+            chunkMs) /
+            1000,
+        ),
       );
       void (async () => {
         for (
