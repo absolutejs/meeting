@@ -52,4 +52,4 @@ reference `MeetingSource` implementation and a test harness.
 
 ## License
 
-CC BY-NC 4.0
+Business Source License 1.1 — production use is free except offering the package as a competing hosted service (see the Additional Use Grant in [LICENSE](./LICENSE)). Converts to Apache 2.0 on May 29, 2030.
