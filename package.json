@@ -1,6 +1,6 @@
 {
 	"name": "@absolutejs/meeting",
-	"version": "0.0.1-beta.6",
+	"version": "0.0.1-beta.7",
 	"description": "Meeting-bot core for AbsoluteJS — join a call (via a source adapter), transcribe it live with the voice scribe, and surface diarized turns + participants for analysis",
 	"repository": {
 		"type": "git",
@@ -41,11 +41,14 @@
 	},
 	"dependencies": {
 		"@absolutejs/manifest": "^0.1.0",
-		"@absolutejs/voice": "0.0.22-beta.550",
 		"@sinclair/typebox": "^0.34.0"
 	},
 	"devDependencies": {
+		"@absolutejs/voice": "0.0.22-beta.644",
 		"@types/bun": "1.3.9",
 		"typescript": "^5.9.3"
+	},
+	"peerDependencies": {
+		"@absolutejs/voice": ">=0.0.22-beta.644 <0.1"
 	}
 }
