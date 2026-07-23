@@ -1,54 +1,54 @@
 {
-	"name": "@absolutejs/meeting",
-	"version": "0.0.1-beta.7",
-	"description": "Meeting-bot core for AbsoluteJS — join a call (via a source adapter), transcribe it live with the voice scribe, and surface diarized turns + participants for analysis",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/absolutejs/meeting.git"
-	},
-	"homepage": "https://github.com/absolutejs/meeting",
-	"bugs": {
-		"url": "https://github.com/absolutejs/meeting/issues"
-	},
-	"files": [
-		"dist",
-		"README.md"
-	],
-	"main": "./dist/index.js",
-	"types": "./dist/index.d.ts",
-	"exports": {
-		".": {
-			"import": "./dist/index.js",
-			"types": "./dist/index.d.ts"
-		},
-		"./manifest": {
-			"import": "./dist/manifest.js",
-			"types": "./dist/manifest.d.ts"
-		},
-		"./manifest.json": "./dist/manifest.json"
-	},
-	"license": "BSL-1.1",
-	"author": "Alex Kahn",
-	"absolutejs": {
-		"manifestContract": 1
-	},
-	"scripts": {
-		"build": "rm -rf dist && bun build ./src/index.ts ./src/manifest.ts --outdir dist --root src --target bun --external @absolutejs/voice && tsc --emitDeclarationOnly --project tsconfig.json && absolute-manifest emit",
-		"format": "prettier --write \"./**/*.{js,ts,json,md}\"",
-		"release": "bun run format && bun run build && bun publish",
-		"test": "bun test",
-		"typecheck": "bun run tsc --noEmit"
-	},
-	"dependencies": {
-		"@absolutejs/manifest": "^0.1.0",
-		"@sinclair/typebox": "^0.34.0"
-	},
-	"devDependencies": {
-		"@absolutejs/voice": "0.0.22-beta.644",
-		"@types/bun": "1.3.9",
-		"typescript": "^5.9.3"
-	},
-	"peerDependencies": {
-		"@absolutejs/voice": ">=0.0.22-beta.644 <0.1"
-	}
+  "name": "@absolutejs/meeting",
+  "version": "0.0.1-beta.8",
+  "description": "Meeting-bot core for AbsoluteJS — join a call (via a source adapter), transcribe it live with the voice scribe, and surface diarized turns + participants for analysis",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/absolutejs/meeting.git"
+  },
+  "homepage": "https://github.com/absolutejs/meeting",
+  "bugs": {
+    "url": "https://github.com/absolutejs/meeting/issues"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./manifest": {
+      "import": "./dist/manifest.js",
+      "types": "./dist/manifest.d.ts"
+    },
+    "./manifest.json": "./dist/manifest.json"
+  },
+  "license": "BSL-1.1",
+  "author": "Alex Kahn",
+  "absolutejs": {
+    "manifestContract": 2
+  },
+  "scripts": {
+    "build": "rm -rf dist && bun build ./src/index.ts ./src/manifest.ts --outdir dist --root src --target bun --external @absolutejs/voice && tsc --emitDeclarationOnly --project tsconfig.json && absolute-manifest emit",
+    "format": "prettier --write \"./**/*.{js,ts,json,md}\"",
+    "release": "bun run format && bun run build && bun publish",
+    "test": "bun test",
+    "typecheck": "bun run tsc --noEmit"
+  },
+  "dependencies": {
+    "@absolutejs/manifest": "^0.4.0",
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "devDependencies": {
+    "@absolutejs/voice": "0.0.22-beta.644",
+    "@types/bun": "1.3.9",
+    "typescript": "^5.9.3"
+  },
+  "peerDependencies": {
+    "@absolutejs/voice": ">=0.0.22-beta.644 <0.1"
+  }
 }

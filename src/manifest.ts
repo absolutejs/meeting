@@ -18,7 +18,7 @@ const MAX_CHAT_LENGTH = 2000;
  * `sessionId` is per-meeting → generated in the wiring; `lexicon` carries
  * metadata records → left to code. */
 export const manifest = defineManifest<CreateMeetingOptions, MeetingSession>()({
-  contract: 1,
+  contract: 2,
   identity: {
     accent: "#f97316",
     category: "voice",
@@ -123,6 +123,16 @@ export const manifest = defineManifest<CreateMeetingOptions, MeetingSession>()({
   tools: {
     leave_meeting: tool.runtime({
       annotations: { destructiveHint: true, idempotentHint: true },
+      authorization: {
+        approval: "policy",
+        audience: "owner",
+        destinations: ["configured-meeting-platform"],
+        effects: ["write", "send", "external-network"],
+        idempotency: { mode: "host" },
+        requiredScopes: ["meeting:leave"],
+        resource: { type: "active-meeting" },
+        reversible: false,
+      },
       description:
         "Make the bot leave the call, finalize the transcript, and end the session.",
       handler: async ({ reason }, meeting) => {
@@ -134,6 +144,12 @@ export const manifest = defineManifest<CreateMeetingOptions, MeetingSession>()({
     }),
     meeting_participants: tool.runtime({
       annotations: { readOnlyHint: true },
+      authorization: {
+        approval: "never",
+        audience: "owner",
+        effects: ["read"],
+        requiredScopes: ["meeting:read"],
+      },
       description:
         "List the participants the call platform has reported for this meeting.",
       handler: (_input, meeting) =>
@@ -148,6 +164,12 @@ export const manifest = defineManifest<CreateMeetingOptions, MeetingSession>()({
     }),
     meeting_transcript: tool.runtime({
       annotations: { readOnlyHint: true },
+      authorization: {
+        approval: "never",
+        audience: "owner",
+        effects: ["read"],
+        requiredScopes: ["meeting:read"],
+      },
       description:
         "Read the diarized transcript so far — the most recent turns, each with its speaker and (when known) the resolved participant.",
       handler: ({ limit }, meeting) => {
@@ -173,6 +195,16 @@ export const manifest = defineManifest<CreateMeetingOptions, MeetingSession>()({
     }),
     send_chat_message: tool.runtime({
       annotations: { openWorldHint: true },
+      authorization: {
+        approval: "policy",
+        audience: "owner",
+        destinations: ["configured-meeting-platform"],
+        effects: ["send", "external-network"],
+        idempotency: { mode: "host" },
+        requiredScopes: ["meeting:chat:send"],
+        resource: { type: "active-meeting" },
+        reversible: false,
+      },
       description:
         "Post a text message into the call chat as the bot. Fails cleanly when the platform adapter can't write chat (check first: not every source supports it).",
       handler: async ({ text }, meeting) => {
