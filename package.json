@@ -1,10 +1,10 @@
 {
   "name": "@absolutejs/meeting",
-  "version": "0.0.1-beta.8",
+  "version": "0.0.1-beta.9",
   "description": "Meeting-bot core for AbsoluteJS — join a call (via a source adapter), transcribe it live with the voice scribe, and surface diarized turns + participants for analysis",
   "repository": {
     "type": "git",
-    "url": "https://github.com/absolutejs/meeting.git"
+    "url": "git+https://github.com/absolutejs/meeting.git"
   },
   "homepage": "https://github.com/absolutejs/meeting",
   "bugs": {
@@ -30,25 +30,43 @@
   "license": "BSL-1.1",
   "author": "Alex Kahn",
   "absolutejs": {
-    "manifestContract": 2
+    "manifestContract": 2,
+    "runtimePeers": {
+      "@absolutejs/voice": {
+        "artifactImports": [
+          "@absolutejs/voice"
+        ],
+        "buildExternals": [
+          "@absolutejs/voice",
+          "@absolutejs/voice/*"
+        ],
+        "optional": false,
+        "range": ">=0.0.22-beta.647 <0.1",
+        "tested": "0.0.22-beta.647"
+      }
+    }
   },
   "scripts": {
-    "build": "rm -rf dist && bun build ./src/index.ts ./src/manifest.ts --outdir dist --root src --target bun --external @absolutejs/voice && tsc --emitDeclarationOnly --project tsconfig.json && absolute-manifest emit",
+    "build": "rm -rf dist && bun build ./src/index.ts ./src/manifest.ts --outdir dist --root src --target bun --external @absolutejs/manifest --external '@absolutejs/manifest/*' --external @absolutejs/voice --external '@absolutejs/voice/*' --external @sinclair/typebox --external '@sinclair/typebox/*' && tsc --emitDeclarationOnly --project tsconfig.json && absolute-manifest emit",
     "format": "prettier --write \"./**/*.{js,ts,json,md}\"",
-    "release": "bun run format && bun run build && bun publish",
+    "release": "bun run check:package && npm publish --access public --tag beta",
     "test": "bun test",
-    "typecheck": "bun run tsc --noEmit"
+    "typecheck": "bun run tsc --noEmit",
+    "verify-package": "absolute-manifest verify-package",
+    "check:package": "bun run format && bun run typecheck && bun run test && bun run verify-package && bun run build && bun run verify-package --artifacts"
   },
   "dependencies": {
-    "@absolutejs/manifest": "^0.4.0",
-    "@sinclair/typebox": "^0.34.0"
+    "@absolutejs/manifest": "0.7.2",
+    "@sinclair/typebox": "0.34.52"
   },
   "devDependencies": {
-    "@absolutejs/voice": "0.0.22-beta.644",
-    "@types/bun": "1.3.9",
+    "@absolutejs/voice": "0.0.22-beta.647",
+    "@types/bun": "1.3.14",
+    "elysia": "1.4.29",
+    "prettier": "3.9.6",
     "typescript": "^5.9.3"
   },
   "peerDependencies": {
-    "@absolutejs/voice": ">=0.0.22-beta.644 <0.1"
+    "@absolutejs/voice": ">=0.0.22-beta.647 <0.1"
   }
 }
