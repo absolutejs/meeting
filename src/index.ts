@@ -5,7 +5,18 @@ export type {
   MeetingEventMap,
   CreateMeetingOptions,
 } from "./meeting";
-export { createBufferMeetingSource } from "./bufferSource";
+export { createMeetingManager } from "./manager";
+export type {
+  ManagedMeeting,
+  MeetingManager,
+  MeetingManagerOptions,
+  MeetingSourceFactory,
+  MeetingSourceFactoryInput,
+} from "./manager";
+export {
+  createBufferMeetingSource,
+  createBufferMeetingSourceFactory,
+} from "./bufferSource";
 export type { BufferMeetingSourceOptions } from "./bufferSource";
 export type {
   ChatMessage,

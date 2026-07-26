@@ -37,6 +37,28 @@ await meeting.start(); // bot joins the call
 // ... later: await meeting.stop()
 ```
 
+For an application that joins dynamic calls, bind provider configuration once
+and use the multi-session manager. Installation itself never contacts a meeting
+platform:
+
+```ts
+import { createMeetingManager } from "@absolutejs/meeting";
+import { createRecallMeetingSourceFactory } from "@absolutejs/meeting-recall";
+
+const meetings = createMeetingManager({
+  source: createRecallMeetingSourceFactory({
+    apiKey: process.env.RECALL_API_KEY!,
+    websocketUrl: "wss://app.example.com/meeting/audio",
+  }),
+  stt: deepgram({ apiKey: process.env.DEEPGRAM_API_KEY!, diarize: true }),
+});
+
+await meetings.start({
+  sessionId: "deal-123",
+  target: "https://meet.google.com/abc-defg-hij",
+});
+```
+
 ### Testing without a platform
 
 `createBufferMeetingSource` streams an in-memory PCM buffer in real time — the
@@ -46,6 +68,8 @@ reference `MeetingSource` implementation and a test harness.
 
 - `createMeeting(options)` → `MeetingSession` (`on`, `start`, `stop`,
   `getTranscript`, `getParticipants`).
+- `createMeetingManager(options)` → dynamic, idempotent multi-session host
+  boundary (`start`, `stop`, `get`, `list`).
 - `createBufferMeetingSource(options)` → `MeetingSource`.
 - Types: `MeetingSource`, `MeetingSourceEventMap`, `MeetingParticipant`,
   `MeetingSession`, `MeetingTurn`, `CreateMeetingOptions`.

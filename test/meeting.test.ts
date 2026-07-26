@@ -1,6 +1,10 @@
 import { expect, test } from "bun:test";
 import type { STTAdapter } from "@absolutejs/voice";
-import { createBufferMeetingSource, createMeeting } from "../src";
+import {
+  createBufferMeetingSource,
+  createMeeting,
+  createMeetingManager,
+} from "../src";
 
 const format = {
   channels: 1,
@@ -66,4 +70,58 @@ test("meeting exposes source capabilities and retains its participant roster", a
 
   expect(meeting.capabilities).toEqual({ canChat: false, canSpeak: false });
   expect(meeting.getParticipants()).toEqual([{ id: "grace", name: "Grace" }]);
+});
+
+test("meeting manager creates dynamic targets idempotently and removes ended sessions", async () => {
+  const targets: string[] = [];
+  const manager = createMeetingManager({
+    source: ({ target }) => {
+      targets.push(target);
+      return createBufferMeetingSource({
+        chunkMs: 1,
+        format,
+        pcm: new Uint8Array(),
+      });
+    },
+    stt: silentStt,
+  });
+
+  const first = manager.start({
+    sessionId: "managed-meeting",
+    target: "https://meet.example/one",
+  });
+  const retry = manager.start({
+    sessionId: "managed-meeting",
+    target: "https://meet.example/one",
+  });
+  expect(await first).toBe(await retry);
+  expect(targets).toEqual(["https://meet.example/one"]);
+
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  expect(manager.list()).toEqual([]);
+});
+
+test("meeting manager rejects one session identity being rebound to another target", async () => {
+  let releaseStart: (() => void) | undefined;
+  const manager = createMeetingManager({
+    source: async () => {
+      await new Promise<void>((resolve) => {
+        releaseStart = resolve;
+      });
+      return createBufferMeetingSource({
+        chunkMs: 1,
+        format,
+        pcm: new Uint8Array(),
+      });
+    },
+    stt: silentStt,
+  });
+
+  const first = manager.start({ sessionId: "same-id", target: "target-one" });
+  await Promise.resolve();
+  await expect(
+    manager.start({ sessionId: "same-id", target: "target-two" }),
+  ).rejects.toThrow("different target");
+  releaseStart?.();
+  await first;
 });

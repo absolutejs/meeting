@@ -5,6 +5,7 @@ import type {
   MeetingSource,
   MeetingSourceEventMap,
 } from "./source";
+import type { MeetingSourceFactory } from "./manager";
 
 export type BufferMeetingSourceOptions = {
   format: AudioFormat;
@@ -71,3 +72,9 @@ export const createBufferMeetingSource = (
     },
   };
 };
+
+/** Build a fresh buffer source for every managed meeting session. */
+export const createBufferMeetingSourceFactory =
+  (options: BufferMeetingSourceOptions): MeetingSourceFactory =>
+  () =>
+    createBufferMeetingSource(options);
