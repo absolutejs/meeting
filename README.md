@@ -18,10 +18,14 @@ so each platform is a separate adapter under
 ```ts
 import { createMeeting } from "@absolutejs/meeting";
 import { deepgram } from "@absolutejs/voice-deepgram";
-import { recall } from "@absolutejs/meeting-recall";
+import { createRecallMeetingSource } from "@absolutejs/meeting-recall";
 
 const meeting = await createMeeting({
-  source: recall({ apiKey: process.env.RECALL_API_KEY!, meetingUrl }),
+  source: createRecallMeetingSource({
+    apiKey: process.env.RECALL_API_KEY!,
+    meetingUrl,
+    websocketUrl: process.env.RECALL_WEBSOCKET_URL!,
+  }),
   stt: deepgram({ apiKey: process.env.DEEPGRAM_API_KEY!, diarize: true }),
   sessionId: "deal-123",
 });
