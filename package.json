@@ -11,8 +11,10 @@
     "url": "https://github.com/absolutejs/meeting/issues"
   },
   "files": [
-    "dist",
-    "README.md"
+    "CHANGELOG.md",
+    "README.md",
+    "changelog.json",
+    "dist"
   ],
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -30,21 +32,7 @@
   "license": "BSL-1.1",
   "author": "Alex Kahn",
   "absolutejs": {
-    "manifestContract": 2,
-    "runtimePeers": {
-      "@absolutejs/voice": {
-        "artifactImports": [
-          "@absolutejs/voice"
-        ],
-        "buildExternals": [
-          "@absolutejs/voice",
-          "@absolutejs/voice/*"
-        ],
-        "optional": false,
-        "range": ">=0.0.22-beta.647 <0.1",
-        "tested": "0.0.22-beta.647"
-      }
-    }
+    "manifestContract": 2
   },
   "scripts": {
     "build": "rm -rf dist && bun build ./src/index.ts ./src/manifest.ts --outdir dist --root src --target bun --external @absolutejs/manifest --external '@absolutejs/manifest/*' --external @absolutejs/voice --external '@absolutejs/voice/*' --external @sinclair/typebox --external '@sinclair/typebox/*' && tsc --emitDeclarationOnly --project tsconfig.json && absolute-manifest emit",
@@ -53,13 +41,14 @@
     "test": "bun test",
     "typecheck": "bun run tsc --noEmit",
     "verify-package": "absolute-manifest verify-package",
-    "check:package": "bun run format && bun run typecheck && bun run test && bun run verify-package && bun run build && bun run verify-package --artifacts"
+    "check:package": "bun run format && bun run typecheck && bun run test && bun run verify-package && bun run build && absolute-changelog check"
   },
   "dependencies": {
-    "@absolutejs/manifest": "0.7.2",
+    "@absolutejs/manifest": "0.9.0",
     "@sinclair/typebox": "0.34.52"
   },
   "devDependencies": {
+    "@absolutejs/changelog": "^0.1.2",
     "@absolutejs/voice": "0.0.22-beta.647",
     "@types/bun": "1.3.14",
     "elysia": "1.4.29",
