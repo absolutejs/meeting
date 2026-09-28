@@ -1,5 +1,20 @@
 {
 	"contract": 1,
 	"name": "@absolutejs/meeting",
-	"releases": []
+	"releases": [
+		{
+			"changes": [
+				{
+					"kind": "added",
+					"summary": "Meetings emit endOfTurn when the speaker stops, with the turns of that utterance and the participant each was heard from, so assistants can act on a whole request rather than the first piece the STT vendor finalized.",
+					"symbols": [
+						"createMeeting",
+						"MeetingEventMap"
+					]
+				}
+			],
+			"date": "2026-09-28",
+			"version": "0.0.1-beta.12"
+		}
+	]
 }

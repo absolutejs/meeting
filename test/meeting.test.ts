@@ -125,3 +125,52 @@ test("meeting manager rejects one session identity being rebound to another targ
   releaseStart?.();
   await first;
 });
+
+test("endOfTurn carries one utterance the vendor finalized in pieces, with its speaker", async () => {
+  type Handler = (payload: never) => void;
+  const handlers = new Map<string, Handler[]>();
+  const fire = (event: string, payload: unknown) =>
+    handlers.get(event)?.forEach((handler) => handler(payload as never));
+  const stt: STTAdapter = {
+    kind: "stt",
+    open: () => ({
+      close: async () => {},
+      on: (event: string, handler: Handler) => {
+        handlers.set(event, [...(handlers.get(event) ?? []), handler]);
+        return () => {};
+      },
+      send: async () => {},
+    }),
+  } as unknown as STTAdapter;
+  const source = createBufferMeetingSource({
+    chunkMs: 1,
+    format,
+    participants: [{ id: "ada", name: "Ada" }],
+    pcm: new Uint8Array([1, 2, 3, 4]),
+  });
+  const meeting = await createMeeting({ sessionId: "m", source, stt });
+  const utterances: { texts: string[]; who?: string }[] = [];
+  meeting.on("endOfTurn", ({ turns }) => {
+    utterances.push({
+      texts: turns.map((t) => t.text),
+      who: turns[0]?.participant?.name,
+    });
+  });
+  const final = (text: string) => ({
+    type: "final",
+    receivedAt: 0,
+    transcript: { id: text, isFinal: true, text, speaker: "ada" },
+  });
+  // The source's roster names who "ada" is.
+  const ended = new Promise((resolve) => meeting.on("end", resolve));
+  await meeting.start();
+  await new Promise((resolve) => setTimeout(resolve, 5));
+  fire("final", final("Juniper, create a task."));
+  fire("final", final("Due Friday."));
+  fire("endOfTurn", { type: "endOfTurn", reason: "vendor", receivedAt: 0 });
+  expect(utterances).toEqual([
+    { texts: ["Juniper, create a task.", "Due Friday."], who: "Ada" },
+  ]);
+  await meeting.stop();
+  await ended;
+});
