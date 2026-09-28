@@ -22,6 +22,12 @@ export type MeetingTurn = VoiceScribeTurn & {
 
 export type MeetingEventMap = {
   turn: { turn: MeetingTurn };
+  /** The speaker stopped: the turns finalized since the previous end of turn,
+   *  i.e. one utterance the STT vendor may have finalized in several pieces
+   *  while the person was still talking. Act on requests here rather than on
+   *  each `turn`. Needs @absolutejs/voice 0.0.22-beta.679 or later; older
+   *  scribes never emit it. */
+  endOfTurn: { turns: MeetingTurn[] };
   /** Roster update. `status` mirrors the source: "joined"/absent on appear,
    *  "left" when a participant leaves the call. */
   participant: {
@@ -99,6 +105,7 @@ export const createMeeting = async (
   const { emit, on } = createEmitter<MeetingEventMap>([
     "chat",
     "end",
+    "endOfTurn",
     "error",
     "participant",
     "turn",
@@ -110,9 +117,28 @@ export const createMeeting = async (
     participants.get(turn.speaker) ??
     (lastSpeaker ? participants.get(lastSpeaker) : undefined);
 
+  // Each turn keeps the participant it was attributed to when it was heard.
+  const resolved = new WeakMap<VoiceScribeTurn, MeetingTurn>();
   scribe.on("turn", ({ turn }) => {
-    emit("turn", { turn: { ...turn, participant: resolveParticipant(turn) } });
+    const meetingTurn = { ...turn, participant: resolveParticipant(turn) };
+    resolved.set(turn, meetingTurn);
+    emit("turn", { turn: meetingTurn });
   });
+  try {
+    scribe.on("endOfTurn", ({ turns }) =>
+      emit("endOfTurn", {
+        turns: turns.map(
+          (turn) =>
+            resolved.get(turn) ?? {
+              ...turn,
+              participant: resolveParticipant(turn),
+            },
+        ),
+      }),
+    );
+  } catch {
+    // A scribe from before endOfTurn existed; `turn` still works.
+  }
   scribe.on("error", (event) => emit("error", { error: event.error }));
 
   let ended = false;
