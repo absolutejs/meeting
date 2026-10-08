@@ -6,6 +6,26 @@
 			"changes": [
 				{
 					"kind": "added",
+					"summary": "Expose submitted transcription audio duration across channels for accurate usage accounting.",
+					"symbols": [
+						"MeetingSession"
+					]
+				},
+				{
+					"kind": "fixed",
+					"summary": "Keep participant audio in separate transcription streams and bind delayed turns and utterance boundaries to their source speaker. Open transcription only after audio arrives.",
+					"symbols": [
+						"createMeeting"
+					]
+				}
+			],
+			"date": "2026-10-08",
+			"version": "0.0.1-beta.13"
+		},
+		{
+			"changes": [
+				{
+					"kind": "added",
 					"summary": "Meetings emit endOfTurn when the speaker stops, with the turns of that utterance and the participant each was heard from, so assistants can act on a whole request rather than the first piece the STT vendor finalized.",
 					"symbols": [
 						"createMeeting",

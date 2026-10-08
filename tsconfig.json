@@ -10,17 +10,8 @@
     "declaration": true,
     "skipLibCheck": true,
     "noUncheckedIndexedAccess": true,
-    "lib": [
-      "DOM",
-      "ESNext"
-    ]
+    "lib": ["DOM", "ESNext"]
   },
-  "include": [
-    "src/**/*",
-    "changelog/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist"
-  ]
+  "include": ["src/**/*", "changelog/**/*"],
+  "exclude": ["node_modules", "dist"]
 }

@@ -5,6 +5,7 @@ import {
   type VoiceLexiconEntry,
   type VoicePhraseHint,
   type VoiceScribeTurn,
+  type VoiceScribeSession,
 } from "@absolutejs/voice";
 import { createEmitter } from "./emitter";
 import type {
@@ -67,6 +68,8 @@ export type MeetingSession = {
   /** What the underlying source can do (speak / chat). */
   readonly capabilities: MeetingCapabilities;
   getTranscript: () => MeetingTurn[];
+  /** Total raw audio duration submitted across transcription streams. */
+  getTranscriptionSeconds: () => number;
   getParticipants: () => MeetingParticipant[];
 };
 
@@ -88,20 +91,13 @@ export type CreateMeetingOptions = {
 export const createMeeting = async (
   options: CreateMeetingOptions,
 ): Promise<MeetingSession> => {
-  const scribe = await createVoiceScribe({
-    format: options.source.format,
-    languageStrategy: options.languageStrategy,
-    lexicon: options.lexicon,
-    phraseHints: options.phraseHints,
-    sessionId: options.sessionId,
-    stt: options.stt,
-  });
-
   const participants = new Map<string, MeetingParticipant>();
-  // The participant the source last attributed audio to (per-user-stream
-  // sources); lets us label turns even when STT diarization can't.
-  let lastSpeaker: string | undefined;
-
+  const transcript: MeetingTurn[] = [];
+  const beganAt = Date.now();
+  let audioBytes = 0,
+    closing = false,
+    finished = false;
+  let finishPromise: Promise<void> | undefined;
   const { emit, on } = createEmitter<MeetingEventMap>([
     "chat",
     "end",
@@ -110,65 +106,116 @@ export const createMeeting = async (
     "participant",
     "turn",
   ]);
-
-  const resolveParticipant = (
-    turn: VoiceScribeTurn,
-  ): MeetingParticipant | undefined =>
-    participants.get(turn.speaker) ??
-    (lastSpeaker ? participants.get(lastSpeaker) : undefined);
-
-  // Each turn keeps the participant it was attributed to when it was heard.
-  const resolved = new WeakMap<VoiceScribeTurn, MeetingTurn>();
-  scribe.on("turn", ({ turn }) => {
-    const meetingTurn = { ...turn, participant: resolveParticipant(turn) };
-    resolved.set(turn, meetingTurn);
-    emit("turn", { turn: meetingTurn });
-  });
-  try {
-    scribe.on("endOfTurn", ({ turns }) =>
-      emit("endOfTurn", {
-        turns: turns.map(
-          (turn) =>
-            resolved.get(turn) ?? {
-              ...turn,
-              participant: resolveParticipant(turn),
-            },
-        ),
-      }),
-    );
-  } catch {
-    // A scribe from before endOfTurn existed; `turn` still works.
-  }
-  scribe.on("error", (event) => emit("error", { error: event.error }));
-
-  let ended = false;
-  const unsubscribe: (() => void)[] = [];
-
-  const finalize = async (reason?: string) => {
-    if (ended) return;
-    ended = true;
-    for (const off of unsubscribe) off();
-    await scribe.close(reason);
-    const transcript = scribe.getTranscript().map((turn) => ({
-      ...turn,
-      participant: resolveParticipant(turn),
-    }));
-    emit("end", { reason, transcript });
+  type Stream = { ready: Promise<VoiceScribeSession>; pending: Promise<void> };
+  // Participant IDs bind separate audio channels to their own STT stream.
+  // Delayed results never inherit whichever participant spoke most recently.
+  // Sources without participant attribution retain a separate mixed stream.
+  const streams = new Map<string | undefined, Stream>();
+  const streamFor = (participantId?: string) => {
+    const existing = streams.get(participantId);
+    if (existing) return existing;
+    const offset = Date.now() - beganAt;
+    const ready = (async () => {
+      const scribe = await createVoiceScribe({
+        format: options.source.format,
+        languageStrategy: options.languageStrategy,
+        lexicon: options.lexicon,
+        phraseHints: options.phraseHints,
+        sessionId: `${options.sessionId}:${participantId ?? "mixed"}`,
+        stt: options.stt,
+      });
+      const resolved = new WeakMap<VoiceScribeTurn, MeetingTurn>();
+      const resolve = (turn: VoiceScribeTurn): MeetingTurn => {
+        const known = resolved.get(turn);
+        if (known) return known;
+        const participant =
+          participantId !== undefined
+            ? (participants.get(participantId) ?? { id: participantId })
+            : participants.get(turn.speaker);
+        const value = {
+          ...turn,
+          ...(participantId !== undefined ? { speaker: participantId } : {}),
+          ...(turn.startedAtMs !== undefined
+            ? { startedAtMs: turn.startedAtMs + offset }
+            : {}),
+          ...(turn.endedAtMs !== undefined
+            ? { endedAtMs: turn.endedAtMs + offset }
+            : {}),
+          ...(participant ? { participant: { ...participant } } : {}),
+        };
+        resolved.set(turn, value);
+        return value;
+      };
+      scribe.on("turn", ({ turn }) => {
+        if (finished) return;
+        const value = resolve(turn);
+        transcript.push(value);
+        emit("turn", { turn: value });
+      });
+      try {
+        scribe.on("endOfTurn", ({ turns }) => {
+          if (!finished) emit("endOfTurn", { turns: turns.map(resolve) });
+        });
+      } catch {
+        /* Older voice scribes still emit finalized turns. */
+      }
+      scribe.on("error", (event) => {
+        if (!finished) emit("error", event);
+      });
+      return scribe;
+    })();
+    const stream = { ready, pending: Promise.resolve() };
+    streams.set(participantId, stream);
+    return stream;
   };
-
+  const unsubscribe: (() => void)[] = [];
+  const finalize = (reason?: string): Promise<void> => {
+    if (finishPromise) return finishPromise;
+    closing = true;
+    for (const off of unsubscribe) off();
+    finishPromise = (async () => {
+      await Promise.all(
+        [...streams.values()].map(async (stream) => {
+          await stream.pending;
+          try {
+            await (await stream.ready).close(reason);
+          } catch (error) {
+            emit("error", {
+              error: error instanceof Error ? error : new Error(String(error)),
+            });
+          }
+        }),
+      );
+      finished = true;
+      emit("end", { reason, transcript: [...transcript] });
+    })();
+    return finishPromise;
+  };
   unsubscribe.push(
     options.source.on("audio", ({ chunk, participant }) => {
-      if (participant) lastSpeaker = participant;
-      void scribe.send(chunk);
+      if (closing) return;
+      const stream = streamFor(participant);
+      // Keep frames in order while the STT connection opens, too.
+      stream.pending = stream.pending
+        .then(async () => {
+          const scribe = await stream.ready;
+          await scribe.send(chunk);
+          audioBytes += chunk.byteLength;
+        })
+        .catch((error) =>
+          emit("error", {
+            error: error instanceof Error ? error : new Error(String(error)),
+          }),
+        );
     }),
     options.source.on("participant", ({ participant, status }) => {
-      // Keep the roster on join/identify; on "left" forward the event but leave
-      // the participant in the map so past turns keep their resolved speaker.
       if (status !== "left") participants.set(participant.id, participant);
       emit("participant", { participant, ...(status ? { status } : {}) });
     }),
     options.source.on("chat", (payload) => emit("chat", payload)),
-    options.source.on("end", ({ reason }) => void finalize(reason)),
+    options.source.on("end", ({ reason }) => {
+      void finalize(reason);
+    }),
     options.source.on("error", ({ error }) => emit("error", { error })),
   );
 
@@ -180,11 +227,12 @@ export const createMeeting = async (
   return {
     capabilities,
     getParticipants: () => [...participants.values()],
-    getTranscript: () =>
-      scribe.getTranscript().map((turn) => ({
-        ...turn,
-        participant: resolveParticipant(turn),
-      })),
+    getTranscript: () => [...transcript],
+    getTranscriptionSeconds: () =>
+      audioBytes /
+      (options.source.format.sampleRateHz *
+        options.source.format.channels *
+        (options.source.format.encoding === "pcm_s16le" ? 2 : 1)),
     on,
     sendChat: async (text, opts) => {
       if (!options.source.sendChat) {
